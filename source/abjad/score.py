@@ -3643,6 +3643,8 @@ class NoteHead:
             pitch = _pitch.NamedPitch(argument)
             if hasattr(argument, "_heli_accidental_string"):
                 pitch._heli_accidental_string = argument._heli_accidental_string
+            if hasattr(argument, "_heli_accidental_magnification"):
+                pitch._heli_accidental_magnification = argument._heli_accidental_magnification
             if hasattr(argument, "_exact_number"):
                 pitch._exact_number = argument._exact_number
         self._written_pitch = pitch

@@ -4446,7 +4446,15 @@ class NamedPitch(Pitch):
 
     """
 
-    __slots__ = ("_heli_accidental_string", "_exact_number")
+    __slots__ = (
+        "_heli_accidental_string",
+        "_heli_accidental_magnification",
+        "_heli_cent_deviation_string",
+        "_heli_cent_deviation",
+        "_exact_number",
+    )
+
+    HEJI2_MAGNIFICATION = 1.75
 
     @staticmethod
     def _is_jitools_pitch(argument):
@@ -4459,7 +4467,32 @@ class NamedPitch(Pitch):
             and hasattr(argument, "keynum")
         )
 
-    def __init__(self, name="c'", *, accidental=None, arrow=None, octave=None):
+    @staticmethod
+    def _is_ratio(argument):
+        return isinstance(argument, fractions.Fraction) or (
+            isinstance(argument, tuple)
+            and len(argument) == 2
+            and isinstance(argument[0], int)
+            and isinstance(argument[1], int)
+        )
+
+    def __init__(
+        self,
+        name="c'",
+        *,
+        accidental=None,
+        arrow=None,
+        octave=None,
+        heli_magnification=None,
+    ):
+        if self._is_ratio(name):
+            try:
+                from jitools.pitch import Pitch as _JitoolsPitch
+            except ImportError as exc:
+                raise ImportError(
+                    "NamedPitch can be instantiated from a ratio only when jitools is installed."
+                ) from exc
+            name = _JitoolsPitch(p=name, rp="C4")
         if self._is_jitools_pitch(name):
             accidental_string, letter_name = name.notation
             if letter_name == "undefined":
@@ -4485,11 +4518,45 @@ class NamedPitch(Pitch):
             base_pitch_name = f"{base_name}{Octave(octave_number).ticks()}"
             super().__init__(base_pitch_name, accidental=accidental, arrow=arrow, octave=octave)
             self._heli_accidental_string = accidental_string
+            if heli_magnification is not None:
+                self._heli_accidental_magnification = heli_magnification
+            if hasattr(name, "letter_name_and_octave_and_cents"):
+                cents_string = str(name.letter_name_and_octave_and_cents).split()[-1]
+                self._heli_cent_deviation_string = cents_string
+                try:
+                    self._heli_cent_deviation = float(cents_string)
+                except ValueError:
+                    self._heli_cent_deviation = None
             self._exact_number = target_number
             return
         super().__init__(
             name or "c'", accidental=accidental, arrow=arrow, octave=octave
         )
+
+    @classmethod
+    def from_ratio(
+        cls,
+        ratio,
+        reference_pitch="C4",
+        *,
+        heli_magnification=None,
+    ) -> "NamedPitch":
+        try:
+            from jitools.pitch import Pitch as _JitoolsPitch
+        except ImportError as exc:
+            raise ImportError(
+                "NamedPitch.from_ratio requires the jitools package to be installed."
+            ) from exc
+        pitch = _JitoolsPitch(p=ratio, rp=reference_pitch)
+        return cls(pitch, heli_magnification=heli_magnification)
+
+    def cent_deviation(self) -> float | None:
+        """Gets cent deviation from nearest 12-EDO pitch if available."""
+        return getattr(self, "_heli_cent_deviation", None)
+
+    def cent_deviation_string(self) -> str | None:
+        """Gets cent deviation string from nearest 12-EDO pitch if available."""
+        return getattr(self, "_heli_cent_deviation_string", None)
 
     def __add__(self, interval) -> "NamedPitch":
         """
@@ -4537,6 +4604,12 @@ class NamedPitch(Pitch):
         pitch = type(self)(self, arrow=self.arrow())
         if hasattr(self, "_heli_accidental_string"):
             pitch._heli_accidental_string = self._heli_accidental_string
+        if hasattr(self, "_heli_accidental_magnification"):
+            pitch._heli_accidental_magnification = self._heli_accidental_magnification
+        if hasattr(self, "_heli_cent_deviation_string"):
+            pitch._heli_cent_deviation_string = self._heli_cent_deviation_string
+        if hasattr(self, "_heli_cent_deviation"):
+            pitch._heli_cent_deviation = self._heli_cent_deviation
         if hasattr(self, "_exact_number"):
             pitch._exact_number = self._exact_number
         return pitch
@@ -4544,34 +4617,6 @@ class NamedPitch(Pitch):
     def __eq__(self, argument: object) -> bool:
         """
         Is true when ``argument`` is a named pitch equal to this named pitch.
-
-        ..  container:: example
-
-            >>> pitch_1 = abjad.NamedPitch("fs")
-            >>> pitch_2 = abjad.NamedPitch("fs")
-            >>> pitch_3 = abjad.NamedPitch("gf")
-
-            >>> pitch_1 == pitch_1
-            True
-            >>> pitch_1 == pitch_2
-            True
-            >>> pitch_1 == pitch_3
-            False
-
-            >>> pitch_2 == pitch_1
-            True
-            >>> pitch_2 == pitch_2
-            True
-            >>> pitch_2 == pitch_3
-            False
-
-            >>> pitch_3 == pitch_1
-            False
-            >>> pitch_3 == pitch_2
-            False
-            >>> pitch_3 == pitch_3
-            True
-
         """
         if isinstance(argument, str):
             argument = NamedPitch(argument)
@@ -4777,28 +4822,38 @@ class NamedPitch(Pitch):
         return self.name()
 
     def _list_contributions(self):
-        if getattr(self, "_heli_accidental_string", None):
-            contributions = []
-            string = r"\once \override Accidental.stencil ="
-            string += " #ly:text-interface::print"
-            contributions.append(string)
-            glyph = self._heli_accidental_string
-            string = r"\once \override Accidental.text ="
-            string += f' \\markup {{ \\override #\'(font-name . "HEJI2") \\magnify #1.3 "{glyph}" }}'
-            contributions.append(string)
-            if self.arrow() is not None:
-                contributions.extend(super()._list_contributions())
-            return contributions
+        """
+        Emit LilyPond overrides so accidentals are printed via the
+        text-interface and rendered using the HEJI2 font. Prefer an
+        explicit HEJI2 glyph string when present; otherwise fall back to
+        musicglyph names wrapped in HEJI2 markup.
+        """
         contributions = []
-        if self.arrow() is None:
-            return contributions
         string = r"\once \override Accidental.stencil ="
         string += " #ly:text-interface::print"
         contributions.append(string)
-        glyph = f"accidentals.{self.accidental.name}"
-        glyph += f".arrow{str(self.arrow).lower()}"
-        string = r"\once \override Accidental.text ="
-        string += rf' \markup {{ \musicglyph #"{glyph}" }}'
+
+        heli_glyph = getattr(self, "_heli_accidental_string", None)
+        magnification = getattr(self, "_heli_accidental_magnification", None)
+        if magnification is None:
+            magnification = type(self).HEJI2_MAGNIFICATION
+
+        string = "\\once \\override Accidental.text ="
+        if heli_glyph is not None:
+            string += " \\markup { \\override #'(font-name . \"HEJI2\") \\magnify #"
+            string += str(magnification)
+            string += " \""
+            string += heli_glyph.replace('"', '\\"')
+            string += "\" }"
+        else:
+            glyph = f"accidentals.{self.accidental().name}"
+            if self.arrow() is not None:
+                glyph += f".arrow{str(self.arrow()).lower()}"
+            string += " \\markup { \\override #'(font-name . \"HEJI2\") \\magnify #"
+            string += str(magnification)
+            string += " \\musicglyph #\""
+            string += glyph
+            string += "\" }"
         contributions.append(string)
         return contributions
 

@@ -1,3 +1,5 @@
+from fractions import Fraction
+
 import pytest
 
 import abjad
@@ -66,7 +68,41 @@ def test_init_from_jitools_pitch():
     note_head = abjad.NoteHead(pitch)
     expected = (
         "\\once \\override Accidental.stencil = #ly:text-interface::print\n"
-        "\\once \\override Accidental.text = \\markup { \\override #'(font-name . \"HEJI2\") \\magnify #1.3 \"N\" }\n"
+        "\\once \\override Accidental.text = \\markup { \\override #'(font-name . \"HEJI2\") \\magnify #1.75 \"N\" }\n"
         "a'!"
+    )
+    assert note_head._get_lilypond_format() == expected
+
+
+def test_init_from_jitools_pitch_with_custom_heji2_magnification():
+    class DummyJitoolsPitch:
+        def __init__(self, notation, letter_name, keynum):
+            self.notation = notation
+            self.letter_name = letter_name
+            self.keynum = keynum
+
+    jitools_pitch = DummyJitoolsPitch(("N", "A"), "A", 69.0)
+    pitch = abjad.NamedPitch(jitools_pitch, heli_magnification=1.25)
+    note_head = abjad.NoteHead(pitch)
+    expected = (
+        "\\once \\override Accidental.stencil = #ly:text-interface::print\n"
+        "\\once \\override Accidental.text = \\markup { \\override #'(font-name . \"HEJI2\") \\magnify #1.25 \"N\" }\n"
+        "a'!"
+    )
+    assert note_head._get_lilypond_format() == expected
+
+
+def test_init_from_ratio():
+    pytest.importorskip("jitools.pitch")
+    pitch = abjad.NamedPitch.from_ratio(Fraction(5, 4), reference_pitch="C4")
+    assert pitch._heli_accidental_string == "m"
+    assert pitch.name() == "e'"
+    assert pitch.cent_deviation_string() == "-13.68629"
+    assert pitch.cent_deviation() == pytest.approx(-13.68629)
+    note_head = abjad.NoteHead(pitch)
+    expected = (
+        "\\once \\override Accidental.stencil = #ly:text-interface::print\n"
+        "\\once \\override Accidental.text = \\markup { \\override #'(font-name . \"HEJI2\") \\magnify #1.75 \"m\" }\n"
+        "e'!"
     )
     assert note_head._get_lilypond_format() == expected
