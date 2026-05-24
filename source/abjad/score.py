@@ -3362,8 +3362,15 @@ class NoteHead:
             result.extend(strings)
         written_pitch = self.written_pitch()
         if isinstance(written_pitch, _pitch.NamedPitch):
-            written_pitch = written_pitch.simplify()
+            has_heli_accidental_string = bool(
+                getattr(written_pitch, "_heli_accidental_string", None)
+            )
+            if not has_heli_accidental_string:
+                written_pitch = written_pitch.simplify()
             kernel = written_pitch.name()
+            result.extend(written_pitch._list_contributions())
+            if has_heli_accidental_string and not self.is_forced():
+                kernel += "!"
         # drum note head:
         else:
             assert isinstance(written_pitch, str)
@@ -3634,6 +3641,10 @@ class NoteHead:
         else:
             assert isinstance(argument, _pitch.NamedPitch), repr(argument)
             pitch = _pitch.NamedPitch(argument)
+            if hasattr(argument, "_heli_accidental_string"):
+                pitch._heli_accidental_string = argument._heli_accidental_string
+            if hasattr(argument, "_exact_number"):
+                pitch._exact_number = argument._exact_number
         self._written_pitch = pitch
         if self.alternative() is not None:
             self.alternative()[0].set_written_pitch(pitch)

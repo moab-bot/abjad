@@ -47,3 +47,26 @@ def test_init(input_, expected_semitones):
         return
     instance = abjad.NamedPitch(input_)
     assert float(instance) == expected_semitones
+
+
+def test_init_from_jitools_pitch():
+    class DummyJitoolsPitch:
+        def __init__(self, notation, letter_name, keynum):
+            self.notation = notation
+            self.letter_name = letter_name
+            self.keynum = keynum
+
+    jitools_pitch = DummyJitoolsPitch(("N", "A"), "A", 69.0)
+    pitch = abjad.NamedPitch(jitools_pitch)
+    assert isinstance(pitch, abjad.NamedPitch)
+    assert pitch.name() == "a'"
+    assert pitch.number() == 9.0
+    assert pitch._heli_accidental_string == "N"
+    assert pitch.simplify() is pitch
+    note_head = abjad.NoteHead(pitch)
+    expected = (
+        "\\once \\override Accidental.stencil = #ly:text-interface::print\n"
+        "\\once \\override Accidental.text = \\markup { \\override #'(font-name . \"HEJI2\") \\magnify #1.3 \"N\" }\n"
+        "a'!"
+    )
+    assert note_head._get_lilypond_format() == expected

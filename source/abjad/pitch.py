@@ -4446,9 +4446,47 @@ class NamedPitch(Pitch):
 
     """
 
-    __slots__ = ()
+    __slots__ = ("_heli_accidental_string", "_exact_number")
+
+    @staticmethod
+    def _is_jitools_pitch(argument):
+        return (
+            not isinstance(argument, str)
+            and hasattr(argument, "notation")
+            and isinstance(argument.notation, tuple)
+            and len(argument.notation) == 2
+            and isinstance(argument.letter_name, str)
+            and hasattr(argument, "keynum")
+        )
 
     def __init__(self, name="c'", *, accidental=None, arrow=None, octave=None):
+        if self._is_jitools_pitch(name):
+            accidental_string, letter_name = name.notation
+            if letter_name == "undefined":
+                raise ValueError(
+                    "can not instantiate NamedPitch from jitools pitch with undefined letter_name."
+                )
+            base_name = letter_name.lower()
+            if base_name not in _diatonic_pc_name_to_pitch_class_number:
+                raise ValueError(
+                    f"can not instantiate NamedPitch from jitools pitch with letter_name {letter_name!r}."
+                )
+            keynum = float(name.keynum)
+            target_number = keynum - 60.0
+            pitch_class_number = _diatonic_pc_name_to_pitch_class_number[base_name]
+            octave_number = int(math.floor((target_number - pitch_class_number) / 12.0) + 4)
+            candidate_number = pitch_class_number + 12 * (octave_number - 4)
+            if abs(candidate_number - target_number) > abs(candidate_number + 12 - target_number):
+                octave_number += 1
+                candidate_number = pitch_class_number + 12 * (octave_number - 4)
+            elif abs(candidate_number - target_number) > abs(candidate_number - 12 - target_number):
+                octave_number -= 1
+                candidate_number = pitch_class_number + 12 * (octave_number - 4)
+            base_pitch_name = f"{base_name}{Octave(octave_number).ticks()}"
+            super().__init__(base_pitch_name, accidental=accidental, arrow=arrow, octave=octave)
+            self._heli_accidental_string = accidental_string
+            self._exact_number = target_number
+            return
         super().__init__(
             name or "c'", accidental=accidental, arrow=arrow, octave=octave
         )
@@ -4496,7 +4534,12 @@ class NamedPitch(Pitch):
             NamedPitch("cs''", arrow=Vertical.UP)
 
         """
-        return type(self)(self, arrow=self.arrow())
+        pitch = type(self)(self, arrow=self.arrow())
+        if hasattr(self, "_heli_accidental_string"):
+            pitch._heli_accidental_string = self._heli_accidental_string
+        if hasattr(self, "_exact_number"):
+            pitch._exact_number = self._exact_number
+        return pitch
 
     def __eq__(self, argument: object) -> bool:
         """
@@ -4734,6 +4777,18 @@ class NamedPitch(Pitch):
         return self.name()
 
     def _list_contributions(self):
+        if getattr(self, "_heli_accidental_string", None):
+            contributions = []
+            string = r"\once \override Accidental.stencil ="
+            string += " #ly:text-interface::print"
+            contributions.append(string)
+            glyph = self._heli_accidental_string
+            string = r"\once \override Accidental.text ="
+            string += f' \\markup {{ \\override #\'(font-name . "HEJI2") \\magnify #1.3 "{glyph}" }}'
+            contributions.append(string)
+            if self.arrow() is not None:
+                contributions.extend(super()._list_contributions())
+            return contributions
         contributions = []
         if self.arrow() is None:
             return contributions
@@ -4845,6 +4900,8 @@ class NamedPitch(Pitch):
             -1
 
         """
+        if hasattr(self, "_exact_number"):
+            return self._exact_number
         diatonic_pc_number = self.pitch_class()._get_diatonic_pc_number()
         pc_number = _diatonic_pc_number_to_pitch_class_number[diatonic_pc_number]
         alteration = self.pitch_class()._get_alteration()
@@ -5030,6 +5087,8 @@ class NamedPitch(Pitch):
             True
 
         """
+        if hasattr(self, "_heli_accidental_string"):
+            return self
         alteration = self._get_alteration()
         if abs(alteration) <= 2:
             return self
