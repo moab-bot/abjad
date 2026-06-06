@@ -4452,6 +4452,8 @@ class NamedPitch(Pitch):
         "_heli_cent_deviation_string",
         "_heli_cent_deviation",
         "_exact_number",
+        "_suppress_heji2",
+        "_parenthesize_heji2",
     )
 
     HEJI2_MAGNIFICATION = 1.75
@@ -4828,6 +4830,8 @@ class NamedPitch(Pitch):
         explicit HEJI2 glyph string when present; otherwise fall back to
         musicglyph names wrapped in HEJI2 markup.
         """
+        if getattr(self, "_suppress_heji2", False):
+            return [r"\once \override Accidental.stencil = ##f"]
         contributions = []
         string = r"\once \override Accidental.stencil ="
         string += " #ly:text-interface::print"
@@ -4838,12 +4842,16 @@ class NamedPitch(Pitch):
         if magnification is None:
             magnification = type(self).HEJI2_MAGNIFICATION
 
+        parenthesize = getattr(self, "_parenthesize_heji2", False)
         string = "\\once \\override Accidental.text ="
         if heli_glyph is not None:
+            inner = heli_glyph.replace('"', '\\"')
+            if parenthesize:
+                inner = "(" + inner + ")"
             string += " \\markup { \\override #'(font-name . \"HEJI2\") \\magnify #"
             string += str(magnification)
             string += " \""
-            string += heli_glyph.replace('"', '\\"')
+            string += inner
             string += "\" }"
         else:
             glyph = f"accidentals.{self.accidental().name}"
@@ -4851,9 +4859,14 @@ class NamedPitch(Pitch):
                 glyph += f".arrow{str(self.arrow()).lower()}"
             string += " \\markup { \\override #'(font-name . \"HEJI2\") \\magnify #"
             string += str(magnification)
-            string += " \\musicglyph #\""
-            string += glyph
-            string += "\" }"
+            if parenthesize:
+                string += " \\concat { \"(\" \\musicglyph #\""
+                string += glyph
+                string += "\" \")\" } }"
+            else:
+                string += " \\musicglyph #\""
+                string += glyph
+                string += "\" }"
         contributions.append(string)
         return contributions
 

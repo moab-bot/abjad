@@ -3647,6 +3647,10 @@ class NoteHead:
                 pitch._heli_accidental_magnification = argument._heli_accidental_magnification
             if hasattr(argument, "_exact_number"):
                 pitch._exact_number = argument._exact_number
+            if hasattr(argument, "_suppress_heji2"):
+                pitch._suppress_heji2 = argument._suppress_heji2
+            if hasattr(argument, "_parenthesize_heji2"):
+                pitch._parenthesize_heji2 = argument._parenthesize_heji2
         self._written_pitch = pitch
         if self.alternative() is not None:
             self.alternative()[0].set_written_pitch(pitch)

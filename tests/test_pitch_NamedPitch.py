@@ -106,3 +106,49 @@ def test_init_from_ratio():
         "e'!"
     )
     assert note_head._get_lilypond_format() == expected
+
+
+def test_suppress_heji2():
+    class DummyJitoolsPitch:
+        def __init__(self, notation, letter_name, keynum):
+            self.notation = notation
+            self.letter_name = letter_name
+            self.keynum = keynum
+
+    pitch = abjad.NamedPitch(DummyJitoolsPitch(("N", "A"), "A", 69.0))
+    pitch._suppress_heji2 = True
+    assert pitch._list_contributions() == [r"\once \override Accidental.stencil = ##f"]
+    note_head = abjad.NoteHead(pitch)
+    expected = "\\once \\override Accidental.stencil = ##f\na'!"
+    assert note_head._get_lilypond_format() == expected
+
+
+def test_parenthesize_heji2_with_heli_glyph():
+    class DummyJitoolsPitch:
+        def __init__(self, notation, letter_name, keynum):
+            self.notation = notation
+            self.letter_name = letter_name
+            self.keynum = keynum
+
+    pitch = abjad.NamedPitch(DummyJitoolsPitch(("N", "A"), "A", 69.0))
+    pitch._parenthesize_heji2 = True
+    note_head = abjad.NoteHead(pitch)
+    expected = (
+        "\\once \\override Accidental.stencil = #ly:text-interface::print\n"
+        "\\once \\override Accidental.text = \\markup { \\override #'(font-name . \"HEJI2\") \\magnify #1.75 \"(N)\" }\n"
+        "a'!"
+    )
+    assert note_head._get_lilypond_format() == expected
+
+
+def test_parenthesize_heji2_with_musicglyph():
+    pitch = abjad.NamedPitch("c'")
+    pitch._parenthesize_heji2 = True
+    contributions = pitch._list_contributions()
+    assert len(contributions) == 2
+    assert contributions[0] == r"\once \override Accidental.stencil = #ly:text-interface::print"
+    assert (
+        contributions[1]
+        == "\\once \\override Accidental.text = \\markup { \\override #'(font-name . \"HEJI2\") \\magnify #1.75"
+        " \\concat { \"(\" \\musicglyph #\"accidentals.natural\" \")\" } }"
+    )

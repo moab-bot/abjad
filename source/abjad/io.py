@@ -91,24 +91,25 @@ class LilyPondIO:
             render_prefix = self.timestamp_checksum_render_prefix(string)
         else:
             render_prefix = self.render_prefix
-        render_directory = self.render_directory()
-        input_path = (render_directory / render_prefix).with_suffix(".ly")
-        self.persist_string(string, input_path)
-        lilypond_path = self.lilypond_path()
-        if self.should_copy_stylesheets:
-            self.copy_stylesheets(render_directory)
-        render_command = self.render_command(input_path, lilypond_path)
-        with _contextmanagers.Timer() as render_timer:
-            log, success = self.run_command(render_command)
-        render_time = render_timer.elapsed_time
-        if self.should_persist_log:
-            self.persist_log(log, input_path.with_suffix(".log"))
-        output_directory = pathlib.Path(
-            self.output_directory or self.abjad_output_directory()
-        )
-        output_paths = self.migrate_assets(
-            render_prefix, render_directory, output_directory
-        )
+        with tempfile.TemporaryDirectory() as _tmp:
+            render_directory = pathlib.Path(_tmp)
+            input_path = (render_directory / render_prefix).with_suffix(".ly")
+            self.persist_string(string, input_path)
+            lilypond_path = self.lilypond_path()
+            if self.should_copy_stylesheets:
+                self.copy_stylesheets(render_directory)
+            render_command = self.render_command(input_path, lilypond_path)
+            with _contextmanagers.Timer() as render_timer:
+                log, success = self.run_command(render_command)
+            render_time = render_timer.elapsed_time
+            if self.should_persist_log:
+                self.persist_log(log, input_path.with_suffix(".log"))
+            output_directory = pathlib.Path(
+                self.output_directory or self.abjad_output_directory()
+            )
+            output_paths = self.migrate_assets(
+                render_prefix, render_directory, output_directory
+            )
         openable_paths = []
         for output_path in self.openable_paths(output_paths):
             openable_paths.append(output_path)
@@ -209,12 +210,6 @@ class LilyPondIO:
             str(input_path),
         ]
         return " ".join(parts)
-
-    def render_directory(self):
-        """
-        Gets render directory.
-        """
-        return pathlib.Path(tempfile.mkdtemp())
 
     def run_command(self, command):
         """
