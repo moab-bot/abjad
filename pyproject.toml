@@ -32,6 +32,9 @@ name = "Joséphine Wolf Oberholtzer"
 email = "josephine.wolf.oberholtzer@gmail.com"
 
 [project.optional-dependencies]
+ji = [
+    "jitools>=1.1.2"
+]
 dev = [
     "black==25.9.0",
     "build==1.3.0",
