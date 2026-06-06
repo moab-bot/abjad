@@ -28,14 +28,6 @@ Specific additions to `NamedPitch`:
 - `_suppress_heji2` slot — suppresses accidental rendering (used for tied-note repetitions)
 - `_parenthesize_heji2` slot — wraps the rendered accidental in parentheses
 
-## Changes from upstream
-
-**`source/abjad/pitch.py`** — all of the above, plus a fix for a missing closing brace in the `\markup` block for the musicglyph parenthesize path
-
-**`source/abjad/score.py`** — `NoteHead.set_written_pitch()` propagates all JI-specific slots when copying a `NamedPitch`
-
-**`source/abjad/io.py`** — `LilyPondIO.__call__()` uses `tempfile.TemporaryDirectory()` instead of `mkdtemp()` so the render scratch directory is automatically cleaned up; removed dead `render_directory()` method
-
 ## License
 
 GPL v3 — same as upstream. See [LICENSE](LICENSE).
