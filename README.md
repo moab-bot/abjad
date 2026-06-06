@@ -4,7 +4,12 @@ This is a fork of [Abjad](https://github.com/Abjad/abjad) adding just intonation
 
 For installation, usage, and general documentation see the [upstream README](README.rst) and [abjad.github.io](https://abjad.github.io).
 
-To install with JI support:
+## Prerequisites
+
+- **LilyPond** 2.25.26 or later — see upstream README for install instructions
+- **HEJI2 font** — required for microtonal accidental rendering; install from [PLAINSOUND/HEJI2](https://github.com/PLAINSOUND/HEJI2)
+
+## Installation
 
 ```
 pip install abjad[ji]
