@@ -4,6 +4,12 @@ This is a fork of [Abjad](https://github.com/Abjad/abjad) adding just intonation
 
 For installation, usage, and general documentation see the [upstream README](README.rst) and [abjad.github.io](https://abjad.github.io).
 
+To install with JI support:
+
+```
+pip install abjad[ji]
+```
+
 ## What this fork adds
 
 `NamedPitch` can now be instantiated directly from a JI ratio or a jitools `Pitch` object. The resulting pitch carries its HEJI2 accidental glyph, cent deviation from the nearest 12-EDO pitch, and exact pitch number. When rendered to LilyPond, accidentals are emitted using the HEJI2 font via `\once \override` contributions rather than standard abjad accidental notation.
