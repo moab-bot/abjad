@@ -1,6 +1,6 @@
 # abjad (moab-bot fork)
 
-This is a fork of [Abjad](https://github.com/Abjad/abjad) adding just intonation pitch support via the [jitools](https://github.com/sclark/jitools) library and HEJI2 microtonal accidental rendering in LilyPond output. The active branch is `abjad-ji`.
+This is a fork of [Abjad](https://github.com/Abjad/abjad) adding just intonation pitch support via the [jitools](https://github.com/moab-bot/jitools) library and HEJI2 microtonal accidental rendering in LilyPond output. The active branch is `abjad-ji`.
 
 For installation, usage, and general documentation see the [upstream README](README.rst) and [abjad.github.io](https://abjad.github.io).
 
